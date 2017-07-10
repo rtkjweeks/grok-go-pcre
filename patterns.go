@@ -1,6 +1,6 @@
 package grok
 
-var patterns = map[string]string{
+var defaultPatterns = map[string]string{
 	"USERNAME":           `[a-zA-Z0-9._-]+`,
 	"USER":               `%{USERNAME}`,
 	"EMAILLOCALPART":     `[a-zA-Z][a-zA-Z0-9_.+-=:]+`,
