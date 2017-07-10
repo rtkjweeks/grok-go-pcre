@@ -388,128 +388,107 @@ func TestConcurentParse(t *testing.T) {
 	go check("QUOTEDSTRING", `'fk"lkj"m'`, "%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
 }
 
-/*
-func TestPatterns(t *testing.T) {
-	g, _ := NewWithConfig(&Config{SkipDefaultPatterns: true})
-	if len(g.patterns) != 0 {
-		t.Fatalf("Patterns should return 0, have '%d'", len(g.patterns))
-	}
-	name := "DAY0"
-	pattern := "(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)"
-
-	g.AddPattern(name, pattern)
-	g.AddPattern(name+"1", pattern)
-	if len(g.patterns) != 2 {
-		t.Fatalf("Patterns should return 2, have '%d'", len(g.patterns))
-	}
-}
-
 func TestParseTypedWithDefaultCaptureMode(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	if captures, err := g.ParseTyped("%{IPV4:ip:string} %{NUMBER:status:int} %{NUMBER:duration:float}", `127.0.0.1 200 0.8`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["ip"] != "127.0.0.1" {
-			t.Fatalf("%s should be '%s' have '%s'", "ip", "127.0.0.1", captures["ip"])
-		} else {
-			if captures["status"] != 200 {
-				t.Fatalf("%s should be '%d' have '%d'", "status", 200, captures["status"])
-			} else {
-				if captures["duration"] != 0.8 {
-					t.Fatalf("%s should be '%f' have '%f'", "duration", 0.8, captures["duration"])
-				}
-			}
-		}
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	captures, err := g.ParseTyped("%{IPV4:ip:string} %{NUMBER:status:int} %{NUMBER:duration:float}", `127.0.0.1 200 0.8`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "ip", "127.0.0.1")
+	expect.MapEqual(captures, "status", 200)
+	expect.MapEqual(captures, "duration", 0.8)
 }
 
 func TestParseTypedWithNoTypeInfo(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	if captures, err := g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["timestamp"] != "23/Apr/2014:22:58:32 +0200" {
-			t.Fatalf("%s should be '%s' have '%s'", "timestamp", "23/Apr/2014:22:58:32 +0200", captures["timestamp"])
-		}
-		if captures["TIME"] != nil {
-			t.Fatalf("%s should be nil have '%s'", "TIME", captures["TIME"])
-		}
-	}
+	expect := ttesting.NewExpect(t)
 
-	g, _ = New()
-	if captures, err := g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["timestamp"] != "23/Apr/2014:22:58:32 +0200" {
-			t.Fatalf("%s should be '%s' have '%s'", "timestamp", "23/Apr/2014:22:58:32 +0200", captures["timestamp"])
-		}
-		if captures["TIME"] != "22:58:32" {
-			t.Fatalf("%s should be '%s' have '%s'", "TIME", "22:58:32", captures["TIME"])
-		}
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	captures, err := g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapNotSet(captures, "TIME")
+
+	g, err = NewGrok(Config{})
+	expect.NoError(err)
+
+	captures, err = g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapEqual(captures, "TIME", "22:58:32")
 }
 
 func TestParseTypedWithIntegerTypeCoercion(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	if captures, err := g.ParseTyped("%{WORD:coerced:int}", `5.75`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["coerced"] != 5 {
-			t.Fatalf("%s should be '%s' have '%s'", "coerced", "5", captures["coerced"])
-		}
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	captures, err := g.ParseTyped("%{WORD:coerced:int}", `5.75`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "coerced", 5)
 }
 
 func TestParseTypedWithUnknownType(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	if _, err := g.ParseTyped("%{WORD:word:unknown}", `hello`); err == nil {
-		t.Fatalf("parsing an unknown type must result in a conversion error")
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	_, err = g.ParseTyped("%{WORD:word:unknown}", `hello`)
+	expect.NotNil(err)
 }
 
 func TestParseTypedErrorCaptureUnknowPattern(t *testing.T) {
-	g, _ := New()
-	pattern := "%{UNKNOWPATTERN}"
-	_, err := g.ParseTyped(pattern, "")
-	if err == nil {
-		t.Fatal("Expected error not set")
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	_, err = g.ParseTyped("%{UNKNOWPATTERN}", "")
+	expect.NotNil(err)
 }
 
 func TestParseTypedWithTypedParents(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	g.AddPattern("TESTCOMMON", `%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes:int}|-)`)
-	if captures, err := g.ParseTyped("%{TESTCOMMON}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["bytes"] != 207 {
-			t.Fatalf("%s should be '%s' have '%s'", "bytes", "207", captures["bytes"])
-		}
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{
+		NamedCapturesOnly: true,
+		Patterns: map[string]string{
+			"TESTCOMMON": `%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes:int}|-)`,
+		}})
+	expect.NoError(err)
+
+	captures, err := g.ParseTyped("%{TESTCOMMON}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "bytes", 207)
 }
 
 func TestParseTypedWithSemanticHomonyms(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true, SkipDefaultPatterns: true})
+	expect := ttesting.NewExpect(t)
 
-	g.AddPattern("BASE10NUM", `([+-]?(?:[0-9]+(?:\.[0-9]+)?)|\.[0-9]+)`)
-	g.AddPattern("NUMBER", `(?:%{BASE10NUM})`)
-	g.AddPattern("MYNUM", `%{NUMBER:bytes:int}`)
-	g.AddPattern("MYSTR", `%{NUMBER:bytes:string}`)
+	g, err := NewGrok(Config{
+		NamedCapturesOnly:   true,
+		SkipDefaultPatterns: true,
+		Patterns: map[string]string{
+			"BASE10NUM": `([+-]?(?:[0-9]+(?:\.[0-9]+)?)|\.[0-9]+)`,
+			"NUMBER":    `(?:%{BASE10NUM})`,
+			"MYNUM":     `%{NUMBER:bytes:int}`,
+			"MYSTR":     `%{NUMBER:bytes:string}`,
+		}})
 
-	if captures, err := g.ParseTyped("%{MYNUM}", `207`); err != nil {
-		t.Fatalf("error can not scapture : %s", err.Error())
-	} else {
-		if captures["bytes"] != 207 {
-			t.Fatalf("%s should be %#v have %#v", "bytes", 207, captures["bytes"])
-		}
-	}
-	if captures, err := g.ParseTyped("%{MYSTR}", `207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["bytes"] != "207" {
-			t.Fatalf("%s should be %#v have %#v", "bytes", "207", captures["bytes"])
-		}
-	}
+	expect.NoError(err)
+
+	captures, err := g.ParseTyped("%{MYNUM}", `207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "bytes", 207)
+
+	captures, err = g.ParseTyped("%{MYSTR}", `207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "bytes", "207")
 }
 
 var resultNew *Grok
@@ -520,13 +499,13 @@ func BenchmarkNew(b *testing.B) {
 	var g *Grok
 	// run the check function b.N times
 	for n := 0; n < b.N; n++ {
-		g, _ = NewWithConfig(&Config{NamedCapturesOnly: true})
+		g, _ = NewGrok(Config{NamedCapturesOnly: true})
 	}
 	resultNew = g
 }
 
 func BenchmarkCaptures(b *testing.B) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
+	g, _ := NewGrok(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
@@ -536,7 +515,7 @@ func BenchmarkCaptures(b *testing.B) {
 }
 
 func BenchmarkCapturesTypedFake(b *testing.B) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
+	g, _ := NewGrok(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
@@ -546,7 +525,7 @@ func BenchmarkCapturesTypedFake(b *testing.B) {
 }
 
 func BenchmarkCapturesTypedReal(b *testing.B) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
+	g, _ := NewGrok(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
@@ -554,111 +533,3 @@ func BenchmarkCapturesTypedReal(b *testing.B) {
 		g.ParseTyped(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:int})?|%{DATA:rawrequest})" %{NUMBER:response:int} (?:%{NUMBER:bytes:int}|-)`, `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	}
 }
-
-func TestGrok_AddPatternsFromMap_not_exist(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("AddPatternsFromMap panics: %v", r)
-		}
-	}()
-	g, _ := NewWithConfig(&Config{SkipDefaultPatterns: true})
-	err := g.AddPatternsFromMap(map[string]string{
-		"SOME": "%{NOT_EXIST}",
-	})
-	if err == nil {
-		t.Errorf("AddPatternsFromMap should returns an error")
-	}
-}
-
-func TestGrok_AddPatternsFromMap_simple(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("AddPatternsFromMap panics: %v", r)
-		}
-	}()
-	g, _ := NewWithConfig(&Config{SkipDefaultPatterns: true})
-	err := g.AddPatternsFromMap(map[string]string{
-		"NO3": `\d{3}`,
-	})
-	if err != nil {
-		t.Errorf("AddPatternsFromMap returns an error: %v", err)
-	}
-	mss, err := g.Parse("%{NO3:match}", "333")
-	if err != nil {
-		t.Error("parsing error:", err)
-		t.FailNow()
-	}
-	if mss["match"] != "333" {
-		t.Errorf("bad match: expected 333, got %s", mss["match"])
-	}
-}
-
-func TestGrok_AddPatternsFromMap_complex(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			t.Fatalf("AddPatternsFromMap panics: %v", r)
-		}
-	}()
-	g, _ := NewWithConfig(&Config{
-		SkipDefaultPatterns: true,
-		NamedCapturesOnly:   true,
-	})
-	err := g.AddPatternsFromMap(map[string]string{
-		"NO3": `\d{3}`,
-		"NO6": "%{NO3}%{NO3}",
-	})
-	if err != nil {
-		t.Errorf("AddPatternsFromMap returns an error: %v", err)
-	}
-	mss, err := g.Parse("%{NO6:number}", "333666")
-	if err != nil {
-		t.Error("parsing error:", err)
-		t.FailNow()
-	}
-	if mss["number"] != "333666" {
-		t.Errorf("bad match: expected 333666, got %s", mss["match"])
-	}
-}
-
-func TestParseStream(t *testing.T) {
-	g, _ := New()
-	pTest := func(m map[string]string) error {
-		ts, ok := m["timestamp"]
-		if !ok {
-			t.Error("timestamp not found")
-		}
-		if len(ts) == 0 {
-			t.Error("empty timestamp")
-		}
-		return nil
-	}
-	const testLog = `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207
-127.0.0.1 - - [23/Apr/2014:22:59:32 +0200] "GET /index.php HTTP/1.1" 404 207
-127.0.0.1 - - [23/Apr/2014:23:00:32 +0200] "GET /index.php HTTP/1.1" 404 207
-`
-
-	r := bufio.NewReader(strings.NewReader(testLog))
-	if err := g.ParseStream(r, "%{COMMONAPACHELOG}", pTest); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestParseStreamError(t *testing.T) {
-	g, _ := New()
-	pTest := func(m map[string]string) error {
-		if _, ok := m["timestamp"]; !ok {
-			return fmt.Errorf("timestamp not found")
-		}
-		return nil
-	}
-	const testLog = `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207
-127.0.0.1 - - [xxxxxxxxxxxxxxxxxxxx +0200] "GET /index.php HTTP/1.1" 404 207
-127.0.0.1 - - [23/Apr/2014:23:00:32 +0200] "GET /index.php HTTP/1.1" 404 207
-`
-
-	r := bufio.NewReader(strings.NewReader(testLog))
-	if err := g.ParseStream(r, "%{COMMONAPACHELOG}", pTest); err == nil {
-		t.Fatal("Error expected")
-	}
-}
-*/
