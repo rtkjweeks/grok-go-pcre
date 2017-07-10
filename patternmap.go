@@ -7,34 +7,29 @@ import (
 
 type patternMap map[string]*grokPattern
 
-func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
-	dependencies := graph{}
-	for key := range *knownPatterns {
-		dependencies[key] = []string{}
-	}
+func (knownPatterns *patternMap) resolve(key, pattern string, newPatterns map[string]string, namedOnly bool) error {
+	for _, keys := range namedReference.FindAllStringSubmatch(pattern, -1) {
+		names := strings.Split(keys[1], ":")
+		refKey := names[0]
 
-	for key, pattern := range newPatterns {
-		referencedKeys := []string{}
-
-		for _, keys := range namedReference.FindAllStringSubmatch(pattern, -1) {
-			names := strings.Split(keys[1], ":")
-			refKey := names[0]
-
-			if _, keyExists := (*knownPatterns)[refKey]; !keyExists {
-				if _, keyExists := newPatterns[refKey]; !keyExists {
-					return fmt.Errorf("no pattern found for %%{%s}", refKey)
-				}
+		if _, refKeyCompiled := (*knownPatterns)[refKey]; !refKeyCompiled {
+			refPattern, refKeyFound := newPatterns[refKey]
+			if !refKeyFound {
+				return fmt.Errorf("no pattern found for %%{%s}", refKey)
 			}
-
-			referencedKeys = append(referencedKeys, refKey)
+			knownPatterns.resolve(refKey, refPattern, newPatterns, namedOnly)
 		}
-		dependencies[key] = referencedKeys
 	}
+	return knownPatterns.add(key, pattern, namedOnly)
+}
 
-	order, _ := sortGraph(dependencies)
-	for _, key := range reverseList(order) {
-		if p, isNew := newPatterns[key]; isNew {
-			knownPatterns.add(key, p, namedOnly)
+func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
+	for key, pattern := range newPatterns {
+		if _, alreadyCompiled := (*knownPatterns)[key]; alreadyCompiled {
+			continue
+		}
+		if err := knownPatterns.resolve(key, pattern, newPatterns, namedOnly); err != nil {
+			return err
 		}
 	}
 
