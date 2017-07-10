@@ -9,6 +9,9 @@ type patternMap map[string]*grokPattern
 
 func (knownPatterns patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
 	dependencies := graph{}
+	for key := range knownPatterns {
+		dependencies[key] = []string{}
+	}
 
 	for key, pattern := range newPatterns {
 		referencedKeys := []string{}
