@@ -1,273 +1,219 @@
 package grok
 
 import (
-	"bufio"
-	"fmt"
-	"strings"
+	"./patterns"
+	"github.com/trivago/tgo/ttesting"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
-	g, _ := New()
-	if len(g.patterns) == 0 {
-		t.Fatal("the Grok object should have some patterns pre loaded")
-	}
+	expect := ttesting.NewExpect(t)
 
-	g, _ = NewWithConfig(&Config{NamedCapturesOnly: true})
-	if len(g.patterns) == 0 {
-		t.Fatal("the Grok object should have some patterns pre loaded")
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+	expect.Greater(len(g.patterns), 0)
+
+	g, err = NewGrok(Config{SkipDefaultPatterns: true})
+	expect.NoError(err)
+	expect.Equal(0, len(g.patterns))
+
+	g, err = NewGrok(Config{Patterns: patterns.AWS})
+	expect.NoError(err)
+
+	g, err = NewGrok(Config{Patterns: patterns.Grok})
+	expect.NoError(err)
+
+	g, err = NewGrok(Config{Patterns: patterns.Firewalls})
+	expect.NoError(err)
 }
 
 func TestParseWithDefaultCaptureMode(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	if captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["timestamp"] != "23/Apr/2014:22:58:32 +0200" {
-			t.Fatalf("%s should be '%s' have '%s'", "timestamp", "23/Apr/2014:22:58:32 +0200", captures["timestamp"])
-		}
-		if captures["TIME"] != "" {
-			t.Fatalf("%s should be '%s' have '%s'", "TIME", "", captures["TIME"])
-		}
-	}
+	expect := ttesting.NewExpect(t)
 
-	g, _ = New()
-	if captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`); err != nil {
-		t.Fatalf("error can not capture : %s", err.Error())
-	} else {
-		if captures["timestamp"] != "23/Apr/2014:22:58:32 +0200" {
-			t.Fatalf("%s should be '%s' have '%s'", "timestamp", "23/Apr/2014:22:58:32 +0200", captures["timestamp"])
-		}
-		if captures["TIME"] != "22:58:32" {
-			t.Fatalf("%s should be '%s' have '%s'", "TIME", "22:58:32", captures["TIME"])
-		}
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapNotSet(captures, "TIME")
+
+	g, err = NewGrok(Config{})
+	expect.NoError(err)
+
+	captures, err = g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapEqual(captures, "TIME", "22:58:32")
 }
 
 func TestMultiParseWithDefaultCaptureMode(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	res, _ := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
-	if len(res["TIME"]) != 0 {
-		t.Fatalf("DAY should be an array of 0 elements, but is '%s'", res["TIME"])
-	}
+	expect := ttesting.NewExpect(t)
 
-	g, _ = New()
-	res, _ = g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
-	if len(res["TIME"]) != 2 {
-		t.Fatalf("TIME should be an array of 2 elements, but is '%s'", res["TIME"])
-	}
-	if len(res["timestamp"]) != 2 {
-		t.Fatalf("timestamp should be an array of 2 elements, but is '%s'", res["timestamp"])
-	}
-}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
 
-func TestNewWithNoDefaultPatterns(t *testing.T) {
-	g, _ := NewWithConfig(&Config{SkipDefaultPatterns: true})
-	if len(g.patterns) != 0 {
-		t.Fatal("Using SkipDefaultPatterns the Grok object should not have any patterns pre loaded")
-	}
-}
+	captures, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapNotSet(captures, "TIME")
+	expect.Equal(2, len(captures["timestamp"]))
 
-func TestAddPatternErr(t *testing.T) {
-	name := "Error"
-	pattern := "%{ERR}"
+	g, err = NewGrok(Config{})
+	expect.NoError(err)
 
-	g, _ := New()
-	err := g.addPattern(name, pattern)
-	if err == nil {
-		t.Fatalf("AddPattern should returns an error when path is invalid")
-	}
-}
+	captures, err = g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
 
-func TestAddPatternsFromPathErr(t *testing.T) {
-	g, _ := New()
-	err := g.AddPatternsFromPath("./Lorem ipsum Minim qui in.")
-	if err == nil {
-		t.Fatalf("AddPatternsFromPath should returns an error when path is invalid")
-	}
-}
-
-func TestConfigPatternsDir(t *testing.T) {
-	g, err := NewWithConfig(&Config{PatternsDir: []string{"./patterns"}})
-	if err != nil {
-		t.Error(err)
-	}
-
-	if captures, err := g.Parse("%{SYSLOGLINE}", `Sep 12 23:19:02 docker syslog-ng[25389]: syslog-ng starting up; version='3.5.3'`); err != nil {
-		t.Fatalf("error : %s", err.Error())
-	} else {
-		// pp.Print(captures)
-		if captures["program"] != "syslog-ng" {
-			t.Fatalf("%s should be '%s' have '%s'", "program", "syslog-ng", captures["program"])
-		}
-	}
-
-}
-
-func TestAddPatternsFromPathFileOpenErr(t *testing.T) {
-	t.Skipped()
-}
-
-func TestAddPatternsFromPathFile(t *testing.T) {
-	g, _ := New()
-	err := g.AddPatternsFromPath("./patterns/grok-patterns")
-	if err != nil {
-		t.Fatalf("err %#v", err)
-	}
-}
-
-func TestAddPattern(t *testing.T) {
-	name := "DAYO"
-	pattern := "(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)"
-
-	g, _ := New()
-	cPatterns := len(g.patterns)
-	g.AddPattern(name, pattern)
-	g.AddPattern(name+"2", pattern)
-	if len(g.patterns) != cPatterns+2 {
-		t.Fatalf("%d Default patterns should be available, have %d", cPatterns+2, len(g.patterns))
-	}
-
-	g, _ = NewWithConfig(&Config{NamedCapturesOnly: true})
-	cPatterns = len(g.patterns)
-	g.AddPattern(name, pattern)
-	g.AddPattern(name+"2", pattern)
-	if len(g.patterns) != cPatterns+2 {
-		t.Fatalf("%d NamedCapture patterns should be available, have %d", cPatterns+2, len(g.patterns))
-	}
+	expect.MapSet(captures, "TIME")
+	expect.Equal(2, len(captures["TIME"]))
+	expect.Equal(2, len(captures["timestamp"]))
 }
 
 func TestMatch(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
+	expect := ttesting.NewExpect(t)
 
-	if r, err := g.Match("%{MONTH}", "June"); !r {
-		t.Fatalf("June should match %s: err=%s", "%{MONTH}", err.Error())
-	}
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
 
+	result, err := g.Match("%{MONTH}", "June")
+	expect.NoError(err)
+	expect.True(result)
+
+	comp, err := g.Compile("%{MONTH}")
+	expect.NoError(err)
+	expect.True(comp.Match("June"))
 }
+
 func TestDoesNotMatch(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
-	if r, _ := g.Match("%{MONTH}", "13"); r {
-		t.Fatalf("13 should not match %s", "%{MONTH}")
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	result, err := g.Match("%{MONTH}", "13")
+	expect.NoError(err)
+	expect.False(result)
+
+	comp, err := g.Compile("%{MONTH}")
+	expect.NoError(err)
+	expect.False(comp.Match("13"))
 }
 
 func TestErrorMatch(t *testing.T) {
-	g, _ := New()
-	if _, err := g.Match("(", "13"); err == nil {
-		t.Fatal("Error expected")
-	}
+	expect := ttesting.NewExpect(t)
 
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	_, err = g.Match("(", "13")
+	expect.NotNil(err)
 }
 
 func TestShortName(t *testing.T) {
-	g, _ := New()
-	g.AddPattern("A", "a")
+	expect := ttesting.NewExpect(t)
 
-	m, err := g.Match("%{A}", "a")
-	if err != nil {
-		t.Fatal("a should match %%{A}: err=%s", err.Error())
-	}
-	if !m {
-		t.Fatal("%%{A} didn't match 'a'")
-	}
+	g, err := NewGrok(Config{Patterns: map[string]string{"A": "a"}})
+	expect.NoError(err)
+
+	result, err := g.Match("%{A}", "a")
+	expect.NoError(err)
+	expect.True(result)
 }
 
 func TestDayCompile(t *testing.T) {
-	g, _ := New()
-	g.AddPattern("DAY", "(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)")
-	pattern := "%{DAY}"
-	_, err := g.compile(pattern)
-	if err != nil {
-		t.Fatal("Error:", err)
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{Patterns: map[string]string{
+		"DAY": "(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)",
+	}})
+	expect.NoError(err)
+
+	_, err = g.Compile("%{DAY}")
+	expect.NoError(err)
 }
 
 func TestErrorCompile(t *testing.T) {
-	g, _ := New()
-	_, err := g.compile("(")
-	if err == nil {
-		t.Fatal("Error:", err)
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	_, err = g.Compile("(")
+	expect.NotNil(err)
 }
 
 func TestNamedCaptures(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
+	expect := ttesting.NewExpect(t)
 
-	check := func(key, value, pattern, text string) {
-		captures, _ := g.Parse(pattern, text)
-		if captures[key] != value {
-			t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-		}
-	}
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
 
-	check("jour", "Tue",
-		"%{DAY:jour}",
-		"Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157",
-	)
+	captured, err := g.Parse("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	expect.NoError(err)
+	expect.MapEqual(captured, "jour", "Tue")
 }
 
 func TestErrorCaptureUnknowPattern(t *testing.T) {
-	g, _ := New()
-	pattern := "%{UNKNOWPATTERN}"
-	_, err := g.Parse(pattern, "")
-	if err == nil {
-		t.Fatal("Expected error not set")
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	_, err = g.Parse("%{UNKNOWPATTERN}", "")
+	expect.NotNil(err)
 }
 
 func TestParse(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
-	res, _ := g.Parse("%{DAY}", "Tue qds")
-	if res["DAY"] != "Tue" {
-		t.Fatalf("DAY should be 'Tue' have '%s'", res["DAY"])
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	res, err := g.Parse("%{DAY}", "Tue qds")
+	expect.NoError(err)
+	expect.MapEqual(res, "DAY", "Tue")
 }
 
 func TestErrorParseToMultiMap(t *testing.T) {
-	g, _ := New()
-	pattern := "%{UNKNOWPATTERN}"
-	_, err := g.ParseToMultiMap(pattern, "")
-	if err == nil {
-		t.Fatal("Expected error not set")
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	_, err = g.ParseToMultiMap("%{UNKNOWPATTERN}", "")
+	expect.NotNil(err)
 }
 
 func TestParseToMultiMap(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
-	res, _ := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
-	if len(res["TIME"]) != 2 {
-		t.Fatalf("DAY should be an array of 3 elements, but is '%s'", res["TIME"])
-	}
-	if res["TIME"][0] != "23:58:32" {
-		t.Fatalf("TIME[0] should be '23:58:32' have '%s'", res["TIME"][0])
-	}
-	if res["TIME"][1] != "22:58:32" {
-		t.Fatalf("TIME[1] should be '22:58:32' have '%s'", res["TIME"][1])
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
+
+	res, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapSet(res, "TIME")
+	expect.Equal(2, len(res["TIME"]))
+	expect.Equal("23:58:32", res["TIME"][0])
+	expect.Equal("22:58:32", res["TIME"][1])
 }
 
 func TestParseToMultiMapOnlyNamedCaptures(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	g.AddPatternsFromPath("./patterns")
-	res, _ := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
-	if len(res["timestamp"]) != 2 {
-		t.Fatalf("timestamp should be an array of 2 elements, but is '%s'", res["timestamp"])
-	}
-	if res["timestamp"][0] != "23/Apr/2014:22:58:32 +0200" {
-		t.Fatalf("timestamp[0] should be '23/Apr/2014:22:58:32 +0200' have '%s'", res["DAY"][0])
-	}
-	if res["timestamp"][1] != "24/Apr/2014:22:58:32 +0200" {
-		t.Fatalf("timestamp[1] should be '24/Apr/2014:22:58:32 +0200' have '%s'", res["DAY"][1])
-	}
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
+
+	res, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+
+	expect.MapSet(res, "timestamp")
+	expect.Equal(2, len(res["timestamp"]))
+	expect.Equal("23/Apr/2014:22:58:32 +0200", res["timestamp"][0])
+	expect.Equal("24/Apr/2014:22:58:32 +0200", res["timestamp"][1])
 }
 
+/*
 func TestCaptureAll(t *testing.T) {
 	g, _ := New()
 	g.AddPatternsFromPath("./patterns")
@@ -719,3 +665,4 @@ func TestParseStreamError(t *testing.T) {
 		t.Fatal("Error expected")
 	}
 }
+*/
