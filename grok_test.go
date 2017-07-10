@@ -1,7 +1,7 @@
 package grok
 
 import (
-	"./patterns"
+	"github.com/trivago/grok/patterns"
 	"github.com/trivago/tgo/ttesting"
 	"testing"
 )
@@ -213,177 +213,172 @@ func TestParseToMultiMapOnlyNamedCaptures(t *testing.T) {
 	expect.Equal("24/Apr/2014:22:58:32 +0200", res["timestamp"][1])
 }
 
-/*
 func TestCaptureAll(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
+	expect := ttesting.NewExpect(t)
 
-	check := func(key, value, pattern, text string) {
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
 
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if captures[key] != value {
-				t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-			}
-		}
-	}
+	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapEqual(captures, "TIME", "22:58:32")
 
-	check("timestamp", "23/Apr/2014:22:58:32 +0200",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("TIME", "22:58:32",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("SECOND", `17,1599`, "%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
-	check("HOSTNAME", `google.com`, "%{HOSTPORT}", `google.com:8080`)
-	//HOSTPORT
-	check("POSINT", `8080`, "%{HOSTPORT}", `google.com:8080`)
+	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "SECOND", "17,1599")
+
+	captures, err = g.Parse("%{HOSTPORT}", `google.com:8080`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "HOSTNAME", "google.com")
+	expect.MapEqual(captures, "POSINT", "8080")
 }
 
 func TestNamedCapture(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-	g.AddPatternsFromPath("./patterns")
+	expect := ttesting.NewExpect(t)
 
-	check := func(key, value, pattern, text string) {
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if captures[key] != value {
-				t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-			}
-		}
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
 
-	check("timestamp", "23/Apr/2014:22:58:32 +0200",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("TIME", "",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("SECOND", ``, "%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
-	check("HOSTNAME", ``, "%{HOSTPORT}", `google.com:8080`)
-	//HOSTPORT
-	check("POSINT", ``, "%{HOSTPORT}", `google.com:8080`)
+	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapNotSet(captures, "TIME")
+
+	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	expect.NoError(err)
+	expect.MapNotSet(captures, "SECOND")
+
+	captures, err = g.Parse("%{HOSTPORT}", `google.com:8080`)
+	expect.NoError(err)
+	expect.MapNotSet(captures, "HOSTNAME")
+	expect.MapNotSet(captures, "POSINT")
 }
 
 func TestRemoveEmptyValues(t *testing.T) {
-	g, _ := NewWithConfig(&Config{NamedCapturesOnly: true, RemoveEmptyValues: true})
+	expect := ttesting.NewExpect(t)
 
-	capturesExists := func(key, pattern, text string) {
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if _, ok := captures[key]; ok {
-				t.Fatalf("%s should be absent", key)
-			}
-		}
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true, RemoveEmptyValues: true})
+	expect.NoError(err)
 
-	capturesExists("rawrequest", "%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-
+	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.MapNotSet(captures, "rawrequest")
 }
 
 func TestCapturesAndNamedCapture(t *testing.T) {
+	expect := ttesting.NewExpect(t)
 
-	check := func(key, value, pattern, text string) {
-		g, _ := New()
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if captures[key] != value {
-				t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-			}
-		}
-	}
+	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	expect.NoError(err)
 
-	checkNamed := func(key, value, pattern, text string) {
-		g, _ := NewWithConfig(&Config{NamedCapturesOnly: true})
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if captures[key] != value {
-				t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-			}
-		}
+	captures, err := g.Parse("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	expect.NoError(err)
+	expect.MapEqual(captures, "jour", "Tue")
 
-	}
+	g, err = NewGrok(Config{})
+	expect.NoError(err)
 
-	check("DAY", "Tue",
-		"%{DAY}",
-		"Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157",
-	)
-	checkNamed("jour", "Tue",
-		"%{DAY:jour}",
-		"Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157",
-	)
-	check("clientip", "127.0.0.1",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("verb", "GET",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("timestamp", "23/Apr/2014:22:58:32 +0200",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
-	check("bytes", "207",
-		"%{COMMONAPACHELOG}",
-		`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`,
-	)
+	captures, err = g.Parse("%{DAY}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	expect.NoError(err)
+	expect.MapEqual(captures, "DAY", "Tue")
+
+	captures, err = g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "clientip", "127.0.0.1")
+	expect.MapEqual(captures, "verb", "GET")
+	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
+	expect.MapEqual(captures, "bytes", "207")
 
 	//PATH
-	check("WINPATH", `c:\winfows\sdf.txt`, "%{WINPATH}", `s dfqs c:\winfows\sdf.txt`)
-	check("WINPATH", `\\sdf\winfows\sdf.txt`, "%{WINPATH}", `s dfqs \\sdf\winfows\sdf.txt`)
-	check("UNIXPATH", `/usr/lib/`, "%{UNIXPATH}", `s dfqs /usr/lib/ sqfd`)
-	check("UNIXPATH", `/usr/lib`, "%{UNIXPATH}", `s dfqs /usr/lib sqfd`)
-	check("UNIXPATH", `/usr/`, "%{UNIXPATH}", `s dfqs /usr/ sqfd`)
-	check("UNIXPATH", `/usr`, "%{UNIXPATH}", `s dfqs /usr sqfd`)
-	check("UNIXPATH", `/`, "%{UNIXPATH}", `s dfqs / sqfd`)
+	captures, err = g.Parse("%{WINPATH}", `s dfqs c:\winfows\sdf.txt`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "WINPATH", `c:\winfows\sdf.txt`)
+
+	captures, err = g.Parse("%{WINPATH}", `s dfqs \\sdf\winfows\sdf.txt`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "WINPATH", `\\sdf\winfows\sdf.txt`)
+
+	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/lib/ sqfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "UNIXPATH", `/usr/lib/`)
+
+	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/lib sqfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "UNIXPATH", `/usr/lib`)
+
+	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/ sqfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "UNIXPATH", `/usr/`)
+
+	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr sqfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "UNIXPATH", `/usr`)
+
+	captures, err = g.Parse("%{UNIXPATH}", `s dfqs / sqfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "UNIXPATH", `/`)
 
 	//YEAR
-	check("YEAR", `4999`, "%{YEAR}", `s d9fq4999s ../ sdf`)
-	check("YEAR", `79`, "%{YEAR}", `s d79fq4999s ../ sdf`)
-	check("TIMESTAMP_ISO8601", `2013-11-06 04:50:17,1599`, "%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	captures, err = g.Parse("%{YEAR}", `s d9fq4999s ../ sdf`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "YEAR", `4999`)
+
+	captures, err = g.Parse("%{YEAR}", `s d79fq4999s ../ sdf`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "YEAR", `79`)
+
+	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "TIMESTAMP_ISO8601", `2013-11-06 04:50:17,1599`)
 
 	//MAC
-	check("MAC", `01:02:03:04:ab:cf`, "%{MAC}", `s d9fq4999s ../ sdf 2013- 01:02:03:04:ab:cf  11-06 04:50:17,1599sd`)
-	check("MAC", `01-02-03-04-ab-cd`, "%{MAC}", `s d9fq4999s ../ sdf 2013- 01-02-03-04-ab-cd  11-06 04:50:17,1599sd`)
+	captures, err = g.Parse("%{MAC}", `s d9fq4999s ../ sdf 2013- 01:02:03:04:ab:cf  11-06 04:50:17,1599sd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "MAC", `01:02:03:04:ab:cf`)
+
+	captures, err = g.Parse("%{MAC}", `s d9fq4999s ../ sdf 2013- 01-02-03-04-ab-cd  11-06 04:50:17,1599sd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "MAC", `01-02-03-04-ab-cd`)
 
 	//QUOTEDSTRING
-	check("QUOTEDSTRING", `"lkj"`, "%{QUOTEDSTRING}", `qsdklfjqsd fk"lkj"mkj`)
-	check("QUOTEDSTRING", `'lkj'`, "%{QUOTEDSTRING}", `qsdklfjqsd fk'lkj'mkj`)
-	check("QUOTEDSTRING", `"fk'lkj'm"`, "%{QUOTEDSTRING}", `qsdklfjqsd "fk'lkj'm"kj`)
-	check("QUOTEDSTRING", `'fk"lkj"m'`, "%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
+	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd fk"lkj"mkj`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "QUOTEDSTRING", `"lkj"`)
+
+	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd fk'lkj'mkj`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "QUOTEDSTRING", `'lkj'`)
+
+	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd "fk'lkj'm"kj`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "QUOTEDSTRING", `"fk'lkj'm"`)
+
+	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "QUOTEDSTRING", `'fk"lkj"m'`)
 
 	//BASE10NUM
-	check("BASE10NUM", `1`, "%{BASE10NUM}", `1`) // this is a nice one
-	check("BASE10NUM", `8080`, "%{BASE10NUM}", `qsfd8080qsfd`)
+	captures, err = g.Parse("%{BASE10NUM}", `1`) // this is a nice one
+	expect.NoError(err)
+	expect.MapEqual(captures, "BASE10NUM", `1`)
 
+	captures, err = g.Parse("%{BASE10NUM}", `qsfd8080qsfd`)
+	expect.NoError(err)
+	expect.MapEqual(captures, "BASE10NUM", `8080`)
 }
 
 // Should be run with -race
 func TestConcurentParse(t *testing.T) {
-	g, _ := New()
-	g.AddPatternsFromPath("./patterns")
+	expect := ttesting.NewExpect(t)
+
+	g, err := NewGrok(Config{})
+	expect.NoError(err)
 
 	check := func(key, value, pattern, text string) {
 
-		if captures, err := g.Parse(pattern, text); err != nil {
-			t.Fatalf("error can not capture : %s", err.Error())
-		} else {
-			if captures[key] != value {
-				t.Fatalf("%s should be '%s' have '%s'", key, value, captures[key])
-			}
-		}
+		captures, err := g.Parse(pattern, text)
+		expect.NoError(err)
+		expect.MapEqual(captures, key, value)
 	}
 
 	go check("QUOTEDSTRING", `"lkj"`, "%{QUOTEDSTRING}", `qsdklfjqsd fk"lkj"mkj`)
@@ -393,6 +388,7 @@ func TestConcurentParse(t *testing.T) {
 	go check("QUOTEDSTRING", `'fk"lkj"m'`, "%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
 }
 
+/*
 func TestPatterns(t *testing.T) {
 	g, _ := NewWithConfig(&Config{SkipDefaultPatterns: true})
 	if len(g.patterns) != 0 {
