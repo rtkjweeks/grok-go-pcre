@@ -7,9 +7,9 @@ import (
 
 type patternMap map[string]*grokPattern
 
-func (knownPatterns patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
+func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
 	dependencies := graph{}
-	for key := range knownPatterns {
+	for key := range *knownPatterns {
 		dependencies[key] = []string{}
 	}
 
@@ -20,7 +20,7 @@ func (knownPatterns patternMap) addList(newPatterns map[string]string, namedOnly
 			names := strings.Split(keys[1], ":")
 			refKey := names[0]
 
-			if _, keyExists := knownPatterns[refKey]; !keyExists {
+			if _, keyExists := (*knownPatterns)[refKey]; !keyExists {
 				if _, keyExists := newPatterns[refKey]; !keyExists {
 					return fmt.Errorf("no pattern found for %%{%s}", refKey)
 				}
@@ -33,18 +33,20 @@ func (knownPatterns patternMap) addList(newPatterns map[string]string, namedOnly
 
 	order, _ := sortGraph(dependencies)
 	for _, key := range reverseList(order) {
-		knownPatterns.add(key, newPatterns[key], namedOnly)
+		if p, isNew := newPatterns[key]; isNew {
+			knownPatterns.add(key, p, namedOnly)
+		}
 	}
 
 	return nil
 }
 
-func (knownPatterns patternMap) add(name, pattern string, namedOnly bool) error {
-	p, err := newGrokPattern(pattern, knownPatterns, namedOnly)
+func (knownPatterns *patternMap) add(name, pattern string, namedOnly bool) error {
+	p, err := newGrokPattern(pattern, *knownPatterns, namedOnly)
 	if err != nil {
 		return err
 	}
 
-	knownPatterns[name] = p
+	(*knownPatterns)[name] = p
 	return nil
 }
