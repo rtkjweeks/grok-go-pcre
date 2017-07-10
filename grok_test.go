@@ -515,6 +515,19 @@ func BenchmarkCaptures(b *testing.B) {
 	}
 }
 
+func BenchmarkParallelCaptures(b *testing.B) {
+	g, _ := NewGrok(Config{NamedCapturesOnly: true})
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	c, _ := g.Compile(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-)`)
+	b.RunParallel(func(b *testing.PB) {
+		for b.Next() {
+			c.Parse(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+		}
+	})
+}
+
 func BenchmarkCapturesTypedFake(b *testing.B) {
 	g, _ := NewGrok(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
