@@ -2,7 +2,7 @@
 
 [![GoDoc](https://godoc.org/github.com/trivago/grok?status.svg)](https://godoc.org/github.com/trivago/grok)
 [![Build Status](https://travis-ci.org/trivago/grok.svg)](https://travis-ci.org/trivago/grok)
-[![Coverage Status](https://coveralls.io/repos/trivago/grok/badge.png?branch=master)](https://coveralls.io/r/trivago/grok?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/trivago/grok/badge.svg?branch=master)](https://coveralls.io/github/trivago/grok?branch=master)
 [![Go Report Card](http://goreportcard.com/badge/trivago/grok)](http:/goreportcard.com/report/trivago/grok)
 
 This is a fork of [github.com/vjeantet/grok](https://github.com/vjeantet/grok) with improved concurrency.
