@@ -262,6 +262,7 @@ func TestRemoveEmptyValues(t *testing.T) {
 	expect.NoError(err)
 
 	captures, err := g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	expect.NoError(err)
 	expect.MapNotSet(captures, "rawrequest")
 }
 
