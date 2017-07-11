@@ -10,11 +10,11 @@ import (
 // Use Grok.Compile to generate a CompiledGrok object.
 type CompiledGrok struct {
 	regexp      *regexp.Regexp
-	typeInfo    semanticTypes
+	typeHints   typeHintByKey
 	removeEmpty bool
 }
 
-type semanticTypes map[string]string
+type typeHintByKey map[string]string
 
 // GetFields returns a list of all named fields in this grok expression
 func (compiled CompiledGrok) GetFields() []string {
@@ -26,12 +26,14 @@ func (compiled CompiledGrok) Match(data []byte) bool {
 	return compiled.regexp.Match(data)
 }
 
-// MatchString returns true if the given string matches the pattern.
+// MatchString returns true if the given text matches the pattern.
 func (compiled CompiledGrok) MatchString(text string) bool {
 	return compiled.regexp.MatchString(text)
 }
 
-// Parse parses the given data into a key value map.
+// Parse processes the given data and returns a map containing the values of
+// all named fields as byte arrays. If a field is parsed more than once, the
+// last match is return.
 func (compiled CompiledGrok) Parse(data []byte) map[string][]byte {
 	captures := make(map[string][]byte)
 
@@ -48,7 +50,9 @@ func (compiled CompiledGrok) Parse(data []byte) map[string][]byte {
 	return captures
 }
 
-// ParseString parses the given string into a key value map.
+// ParseString processes the given text and returns a map containing the values of
+// all named fields as strings. If a field is parsed more than once, the
+// last match is return.
 func (compiled CompiledGrok) ParseString(text string) map[string]string {
 	captures := make(map[string]string)
 
@@ -65,7 +69,9 @@ func (compiled CompiledGrok) ParseString(text string) map[string]string {
 	return captures
 }
 
-// ParseTyped returns a inteface{} map with typed captured fields based on provided pattern over the text
+// ParseTyped processes the given data and returns a map containing the values
+// of all named fields converted to their corresponding types. If no typehint is
+// given, the value will be converted to string.
 func (compiled CompiledGrok) ParseTyped(data []byte) (map[string]interface{}, error) {
 	captures := make(map[string]interface{})
 
@@ -87,7 +93,9 @@ func (compiled CompiledGrok) ParseTyped(data []byte) (map[string]interface{}, er
 	return captures, nil
 }
 
-// ParseStringTyped returns a inteface{} map with typed captured fields based on provided pattern over the text
+// ParseStringTyped processes the given data and returns a map containing the
+// values of all named fields converted to their corresponding types. If no
+// typehint is given, the value will be converted to string.
 func (compiled CompiledGrok) ParseStringTyped(text string) (map[string]interface{}, error) {
 	captures := make(map[string]interface{})
 
@@ -109,9 +117,7 @@ func (compiled CompiledGrok) ParseStringTyped(text string) (map[string]interface
 	return captures, nil
 }
 
-// ParseToMultiMap parses the specified text and returns a map with the
-// results. Values are stored in an string slice, so values from captures with
-// the same name don't get overridden.
+// ParseToMultiMap acts like Parse but allows multiple matches per field.
 func (compiled CompiledGrok) ParseToMultiMap(data []byte) map[string][][]byte {
 	captures := make(map[string][][]byte)
 
@@ -133,9 +139,8 @@ func (compiled CompiledGrok) ParseToMultiMap(data []byte) map[string][][]byte {
 	return captures
 }
 
-// ParseStringToMultiMap parses the specified text and returns a map with the
-// results. Values are stored in an string slice, so values from captures with
-// the same name don't get overridden.
+// ParseStringToMultiMap acts like ParseString but allows multiple matches per
+// field.
 func (compiled CompiledGrok) ParseStringToMultiMap(text string) map[string][]string {
 	captures := make(map[string][]string)
 
@@ -157,17 +162,20 @@ func (compiled CompiledGrok) ParseStringToMultiMap(text string) map[string][]str
 	return captures
 }
 
+// omitField return true if the field is to be omitted
 func (compiled CompiledGrok) omitField(key string, match []byte) bool {
 	return len(key) == 0 || compiled.removeEmpty && len(match) == 0
 }
 
+// omitStringField return true if the field is to be omitted
 func (compiled CompiledGrok) omitStringField(key, match string) bool {
 	return len(key) == 0 || compiled.removeEmpty && len(match) == 0
 }
 
+// typeCast casts a field based on a typehint
 func (compiled CompiledGrok) typeCast(match, key string) (interface{}, error) {
-	typeName, hasTypeInfo := compiled.typeInfo[key]
-	if !hasTypeInfo {
+	typeName, hasTypeHint := compiled.typeHints[key]
+	if !hasTypeHint {
 		return match, nil
 	}
 

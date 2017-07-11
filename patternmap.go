@@ -7,6 +7,8 @@ import (
 
 type patternMap map[string]*grokPattern
 
+// resolve references inside a pattern so that all substitutions are added
+// in the correct order.
 func (knownPatterns *patternMap) resolve(key, pattern string, newPatterns map[string]string, namedOnly bool) error {
 	for _, keys := range namedReference.FindAllStringSubmatch(pattern, -1) {
 		names := strings.Split(keys[1], ":")
@@ -23,6 +25,7 @@ func (knownPatterns *patternMap) resolve(key, pattern string, newPatterns map[st
 	return knownPatterns.add(key, pattern, namedOnly)
 }
 
+// add a list of patterns to the map
 func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnly bool) error {
 	for key, pattern := range newPatterns {
 		if _, alreadyCompiled := (*knownPatterns)[key]; alreadyCompiled {
@@ -36,6 +39,7 @@ func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnl
 	return nil
 }
 
+// add a single pattern to the map
 func (knownPatterns *patternMap) add(name, pattern string, namedOnly bool) error {
 	p, err := newPattern(pattern, *knownPatterns, namedOnly)
 	if err != nil {

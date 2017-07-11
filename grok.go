@@ -4,7 +4,7 @@ import (
 	"regexp"
 )
 
-// A Config structure is used to configure a Grok parser.
+// Config is used to pass a set of configuration values to the grok.New function.
 type Config struct {
 	NamedCapturesOnly   bool
 	SkipDefaultPatterns bool
@@ -12,22 +12,24 @@ type Config struct {
 	Patterns            map[string]string
 }
 
-// Grok object us used to load patterns and deconstruct strings using those
-// patterns.
+// Grok holds a cache of known pattern substitions and acts as a builder for
+// compiled grok patterns. All pattern substitutions must be passed at creation
+// time and cannot be changed during runtime.
 type Grok struct {
 	patterns    patternMap
 	removeEmpty bool
 	namedOnly   bool
 }
 
-// New returns a Grok object that is configured to behave according
-// to the supplied Config structure.
+// New returns a Grok object that caches a given set of patterns and creates
+// compiled grok patterns based on the passed configuration settings.
+// You can use multiple grok objects that act independently.
 func New(config Config) (*Grok, error) {
 	patterns := patternMap{}
 
 	if !config.SkipDefaultPatterns {
 		// Add default patterns first so they can be referenced later
-		if err := patterns.addList(defaultPatterns, config.NamedCapturesOnly); err != nil {
+		if err := patterns.addList(DefaultPatterns, config.NamedCapturesOnly); err != nil {
 			return nil, err
 		}
 	}
@@ -44,8 +46,8 @@ func New(config Config) (*Grok, error) {
 	}, nil
 }
 
-// Compile precompiles a given expression. This function should be used when a
-// grok expression is used more than once.
+// Compile precompiles a given grok expression. This function should be used
+// when a grok expression is used more than once.
 func (grok Grok) Compile(pattern string) (*CompiledGrok, error) {
 	grokPattern, err := newPattern(pattern, grok.patterns, grok.namedOnly)
 	if err != nil {
@@ -59,14 +61,14 @@ func (grok Grok) Compile(pattern string) (*CompiledGrok, error) {
 
 	return &CompiledGrok{
 		regexp:      compiled,
-		typeInfo:    grokPattern.typeInfo,
+		typeHints:   grokPattern.typeHints,
 		removeEmpty: grok.removeEmpty,
 	}, nil
 }
 
-// Match returns true if the specified text matches the pattern.
+// Match returns true if the given data matches the pattern.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) Match(pattern string, data []byte) (bool, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -76,9 +78,9 @@ func (grok Grok) Match(pattern string, data []byte) (bool, error) {
 	return complied.Match(data), nil
 }
 
-// MatchString returns true if the specified text matches the pattern.
+// MatchString returns true if the given text matches the pattern.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) MatchString(pattern, text string) (bool, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -88,9 +90,11 @@ func (grok Grok) MatchString(pattern, text string) (bool, error) {
 	return complied.MatchString(text), nil
 }
 
-// Parse the specified text and return a map with the results.
+// Parse processes the given data and returns a map containing the values of
+// all named fields as byte arrays. If a field is parsed more than once, the
+// last match is return.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) Parse(pattern string, data []byte) (map[string][]byte, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -100,9 +104,11 @@ func (grok Grok) Parse(pattern string, data []byte) (map[string][]byte, error) {
 	return complied.Parse(data), nil
 }
 
-// ParseString the specified text and return a map with the results.
+// ParseString processes the given text and returns a map containing the values of
+// all named fields as strings. If a field is parsed more than once, the
+// last match is return.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) ParseString(pattern, text string) (map[string]string, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -112,10 +118,11 @@ func (grok Grok) ParseString(pattern, text string) (map[string]string, error) {
 	return complied.ParseString(text), nil
 }
 
-// ParseTyped returns a inteface{} map with typed captured fields based on
-// provided pattern over the text.
+// ParseTyped processes the given data and returns a map containing the values
+// of all named fields converted to their corresponding types. If no typehint is
+// given, the value will be converted to string.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) ParseTyped(pattern string, data []byte) (map[string]interface{}, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -125,10 +132,11 @@ func (grok Grok) ParseTyped(pattern string, data []byte) (map[string]interface{}
 	return complied.ParseTyped(data)
 }
 
-// ParseStringTyped returns a inteface{} map with typed captured fields based on
-// provided pattern over the text.
+// ParseStringTyped processes the given data and returns a map containing the
+// values of all named fields converted to their corresponding types. If no
+// typehint is given, the value will be converted to string.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) ParseStringTyped(pattern, text string) (map[string]interface{}, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -138,11 +146,9 @@ func (grok Grok) ParseStringTyped(pattern, text string) (map[string]interface{},
 	return complied.ParseStringTyped(text)
 }
 
-// ParseToMultiMap parses the specified text and returns a map with the
-// results. Values are stored in an string slice, so values from captures with
-// the same name don't get overridden.
+// ParseToMultiMap acts like Parse but allows multiple matches per field.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) ParseToMultiMap(pattern string, data []byte) (map[string][][]byte, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {
@@ -152,11 +158,10 @@ func (grok Grok) ParseToMultiMap(pattern string, data []byte) (map[string][][]by
 	return complied.ParseToMultiMap(data), nil
 }
 
-// ParseStringToMultiMap parses the specified text and returns a map with the
-// results. Values are stored in an string slice, so values from captures with
-// the same name don't get overridden.
+// ParseStringToMultiMap acts like ParseString but allows multiple matches per
+// field.
 // The given pattern is compiled on every call to this function.
-// If you want to reuse your pattern please use Compile.
+// If you want to call this function more than once consider using Compile.
 func (grok Grok) ParseStringToMultiMap(pattern, text string) (map[string][]string, error) {
 	complied, err := grok.Compile(pattern)
 	if err != nil {

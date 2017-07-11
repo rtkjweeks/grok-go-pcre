@@ -8,7 +8,7 @@ import (
 
 type grokPattern struct {
 	expression string
-	typeInfo   semanticTypes
+	typeHints  typeHintByKey
 }
 
 var (
@@ -16,20 +16,20 @@ var (
 )
 
 func newPattern(pattern string, knownPatterns patternMap, namedOnly bool) (*grokPattern, error) {
-	typeInfo := semanticTypes{}
+	typeHints := typeHintByKey{}
 
 	for _, keys := range namedReference.FindAllStringSubmatch(pattern, -1) {
 
 		names := strings.Split(keys[1], ":")
-		refKey, semantic := names[0], names[0]
+		refKey, refAlias := names[0], names[0]
 		if len(names) > 1 {
-			semantic = names[1]
+			refAlias = names[1]
 		}
 
 		// Add type cast information only if type set, and not string
 		if len(names) == 3 {
 			if names[2] != "string" {
-				typeInfo[semantic] = names[2]
+				typeHints[refAlias] = names[2]
 			}
 		}
 
@@ -40,15 +40,15 @@ func newPattern(pattern string, knownPatterns patternMap, namedOnly bool) (*grok
 
 		var refExpression string
 		if !namedOnly || (namedOnly && len(names) > 1) {
-			refExpression = fmt.Sprintf("(?P<%s>%s)", semantic, refPattern.expression)
+			refExpression = fmt.Sprintf("(?P<%s>%s)", refAlias, refPattern.expression)
 		} else {
 			refExpression = fmt.Sprintf("(%s)", refPattern.expression)
 		}
 
 		// Add new type Informations
-		for key, semanticName := range refPattern.typeInfo {
-			if _, hasTypeInfo := typeInfo[key]; !hasTypeInfo {
-				typeInfo[key] = strings.ToLower(semanticName)
+		for key, typeName := range refPattern.typeHints {
+			if _, hasTypeHint := typeHints[key]; !hasTypeHint {
+				typeHints[key] = strings.ToLower(typeName)
 			}
 		}
 
@@ -57,6 +57,6 @@ func newPattern(pattern string, knownPatterns patternMap, namedOnly bool) (*grok
 
 	return &grokPattern{
 		expression: pattern,
-		typeInfo:   typeInfo,
+		typeHints:  typeHints,
 	}, nil
 }
