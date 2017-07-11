@@ -37,7 +37,7 @@ func (knownPatterns *patternMap) addList(newPatterns map[string]string, namedOnl
 }
 
 func (knownPatterns *patternMap) add(name, pattern string, namedOnly bool) error {
-	p, err := NewPattern(pattern, *knownPatterns, namedOnly)
+	p, err := newPattern(pattern, *knownPatterns, namedOnly)
 	if err != nil {
 		return err
 	}

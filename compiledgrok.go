@@ -16,6 +16,11 @@ type CompiledGrok struct {
 
 type semanticTypes map[string]string
 
+// GetFields returns a list of all named fields in this grok expression
+func (compiled CompiledGrok) GetFields() []string {
+	return compiled.regexp.SubexpNames()
+}
+
 // Match returns true if the given data matches the pattern.
 func (compiled CompiledGrok) Match(data []byte) bool {
 	return compiled.regexp.Match(data)
@@ -31,13 +36,12 @@ func (compiled CompiledGrok) Parse(data []byte) map[string][]byte {
 	captures := make(map[string][]byte)
 
 	if matches := compiled.regexp.FindSubmatch(data); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitField(name, match) {
+			if compiled.omitField(key, match) {
 				continue
 			}
-			captures[name] = match
+			captures[key] = match
 		}
 	}
 
@@ -49,13 +53,12 @@ func (compiled CompiledGrok) ParseString(text string) map[string]string {
 	captures := make(map[string]string)
 
 	if matches := compiled.regexp.FindStringSubmatch(text); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitStringField(name, match) {
+			if compiled.omitStringField(key, match) {
 				continue
 			}
-			captures[name] = match
+			captures[key] = match
 		}
 	}
 
@@ -67,21 +70,14 @@ func (compiled CompiledGrok) ParseTyped(data []byte) (map[string]interface{}, er
 	captures := make(map[string]interface{})
 
 	if matches := compiled.regexp.FindSubmatch(data); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitField(name, match) {
+			if compiled.omitField(key, match) {
 				continue
 			}
 
-			typeName, hasTypeInfo := compiled.typeInfo[name]
-			if !hasTypeInfo {
-				captures[name] = match
-				continue
-			}
-
-			if val, err := typeCast(string(match), typeName); err == nil {
-				captures[name] = val
+			if val, err := compiled.typeCast(string(match), key); err == nil {
+				captures[key] = val
 			} else {
 				return nil, err
 			}
@@ -96,21 +92,14 @@ func (compiled CompiledGrok) ParseStringTyped(text string) (map[string]interface
 	captures := make(map[string]interface{})
 
 	if matches := compiled.regexp.FindStringSubmatch(text); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitStringField(name, match) {
+			if compiled.omitStringField(key, match) {
 				continue
 			}
 
-			typeName, hasTypeInfo := compiled.typeInfo[name]
-			if !hasTypeInfo {
-				captures[name] = match
-				continue
-			}
-
-			if val, err := typeCast(match, typeName); err == nil {
-				captures[name] = val
+			if val, err := compiled.typeCast(match, key); err == nil {
+				captures[key] = val
 			} else {
 				return nil, err
 			}
@@ -127,17 +116,16 @@ func (compiled CompiledGrok) ParseToMultiMap(data []byte) map[string][][]byte {
 	captures := make(map[string][][]byte)
 
 	if matches := compiled.regexp.FindSubmatch(data); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitField(name, match) {
+			if compiled.omitField(key, match) {
 				continue
 			}
 
-			if values, exists := captures[name]; exists {
-				captures[name] = append(values, match)
+			if values, exists := captures[key]; exists {
+				captures[key] = append(values, match)
 			} else {
-				captures[name] = [][]byte{match}
+				captures[key] = [][]byte{match}
 			}
 		}
 	}
@@ -152,17 +140,16 @@ func (compiled CompiledGrok) ParseStringToMultiMap(text string) map[string][]str
 	captures := make(map[string][]string)
 
 	if matches := compiled.regexp.FindStringSubmatch(text); len(matches) > 0 {
-		subExpNames := compiled.regexp.SubexpNames()
-		for idx, name := range subExpNames {
+		for idx, key := range compiled.GetFields() {
 			match := matches[idx]
-			if compiled.omitStringField(name, match) {
+			if compiled.omitStringField(key, match) {
 				continue
 			}
 
-			if values, exists := captures[name]; exists {
-				captures[name] = append(values, match)
+			if values, exists := captures[key]; exists {
+				captures[key] = append(values, match)
 			} else {
-				captures[name] = []string{match}
+				captures[key] = []string{match}
 			}
 		}
 	}
@@ -170,15 +157,20 @@ func (compiled CompiledGrok) ParseStringToMultiMap(text string) map[string][]str
 	return captures
 }
 
-func (compiled CompiledGrok) omitField(name string, match []byte) bool {
-	return len(name) == 0 || compiled.removeEmpty && len(match) == 0
+func (compiled CompiledGrok) omitField(key string, match []byte) bool {
+	return len(key) == 0 || compiled.removeEmpty && len(match) == 0
 }
 
-func (compiled CompiledGrok) omitStringField(name, match string) bool {
-	return len(name) == 0 || compiled.removeEmpty && len(match) == 0
+func (compiled CompiledGrok) omitStringField(key, match string) bool {
+	return len(key) == 0 || compiled.removeEmpty && len(match) == 0
 }
 
-func typeCast(match, typeName string) (interface{}, error) {
+func (compiled CompiledGrok) typeCast(match, key string) (interface{}, error) {
+	typeName, hasTypeInfo := compiled.typeInfo[key]
+	if !hasTypeInfo {
+		return match, nil
+	}
+
 	switch typeName {
 	case "int":
 		return strconv.Atoi(match)

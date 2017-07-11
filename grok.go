@@ -47,7 +47,7 @@ func New(config Config) (*Grok, error) {
 // Compile precompiles a given expression. This function should be used when a
 // grok expression is used more than once.
 func (grok Grok) Compile(pattern string) (*CompiledGrok, error) {
-	grokPattern, err := NewPattern(pattern, grok.patterns, grok.namedOnly)
+	grokPattern, err := newPattern(pattern, grok.patterns, grok.namedOnly)
 	if err != nil {
 		return nil, err
 	}

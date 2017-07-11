@@ -15,7 +15,7 @@ var (
 	namedReference = regexp.MustCompile(`%{(\w+(?::\w+(?::\w+)?)?)}`)
 )
 
-func NewPattern(pattern string, knownPatterns patternMap, namedOnly bool) (*grokPattern, error) {
+func newPattern(pattern string, knownPatterns patternMap, namedOnly bool) (*grokPattern, error) {
 	typeInfo := semanticTypes{}
 
 	for _, keys := range namedReference.FindAllStringSubmatch(pattern, -1) {
