@@ -1,5 +1,6 @@
 package patterns
 
+// Java is a collection of common java related patterns.
 var Java = map[string]string{
 	"JAVACLASS": `(?:[a-zA-Z$_][a-zA-Z$_0-9]*\.)*[a-zA-Z$_][a-zA-Z$_0-9]*`,
 	//Space is an allowed character to match special cases like 'Native Method' or 'Unknown Source'

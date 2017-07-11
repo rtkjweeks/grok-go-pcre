@@ -1,5 +1,6 @@
 package patterns
 
+// Exim is a collection of common Exim patterns. See http://www.exim.org
 var Exim = map[string]string{
 	"EXIM_MSGID":         `[0-9A-Za-z]{6}-[0-9A-Za-z]{6}-[0-9A-Za-z]{2}`,
 	"EXIM_FLAGS":         `(<=|[-=>*]>|[*]{2}|==)`,

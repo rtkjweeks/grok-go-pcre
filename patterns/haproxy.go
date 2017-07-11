@@ -1,11 +1,10 @@
 package patterns
 
+// Haproxy is a collection of common HaProxy patterns.
 // These patterns were tested w/ haproxy-1.4.15
-
 // Documentation of the haproxy log formats can be found at the following links:
 // http://code.google.com/p/haproxy-docs/wiki/HTTPLogFormat
 // http://code.google.com/p/haproxy-docs/wiki/TCPLogFormat
-
 var Haproxy = map[string]string{
 	"HAPROXYTIME": `(?!<[0-9])%{HOUR:haproxy_hour}:%{MINUTE:haproxy_minute}(?::%{SECOND:haproxy_second})(?![0-9])`,
 	"HAPROXYDATE": `%{MONTHDAY:haproxy_monthday}/%{MONTH:haproxy_month}/%{YEAR:haproxy_year}:%{HAPROXYTIME:haproxy_time}.%{INT:haproxy_milliseconds}`,

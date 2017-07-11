@@ -1,5 +1,6 @@
 package patterns
 
+// Rails is a collection of patterns used for Ruby on Rails.
 var Rails = map[string]string{
 	"RUUID": `\h{32}`,
 	// rails controller with action

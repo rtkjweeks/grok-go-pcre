@@ -1,5 +1,6 @@
 package patterns
 
+// Bacula is a collection of common Bacula patterns. See http://blog.bacula.org
 var Bacula = map[string]string{
 	"BACULA_TIMESTAMP":              `%{MONTHDAY}-%{MONTH} %{HOUR}:%{MINUTE}`,
 	"BACULA_HOST":                   `[a-zA-Z0-9-]+`,

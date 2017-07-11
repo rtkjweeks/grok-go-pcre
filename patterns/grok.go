@@ -1,5 +1,6 @@
 package patterns
 
+// Grok is a collection of common grok patterns that extend the common defaults.
 var Grok = map[string]string{
 	"USERNAME":  `[a-zA-Z0-9._-]+`,
 	"USER":      `%{USERNAME}`,

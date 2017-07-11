@@ -1,5 +1,6 @@
 package patterns
 
+// MongoDB is a collection of common patterns for MongoDB related logs.
 var MongoDB = map[string]string{
 	"MONGO_LOG":        `%{SYSLOGTIMESTAMP:timestamp} \[%{WORD:component}\] %{GREEDYDATA:message}`,
 	"MONGO_QUERY":      `\{ (?<={ ).*(?= } ntoreturn:) \}`,

@@ -1,5 +1,6 @@
 package patterns
 
+// LinuxSyslog is a collection of syslog patterns used by the linux kernel.
 var LinuxSyslog = map[string]string{
 	"SYSLOG5424PRINTASCII": `[!-~]+`,
 	"SYSLOGBASE2":          `(?:%{SYSLOGTIMESTAMP:timestamp}|%{TIMESTAMP_ISO8601:timestamp8601}) (?:%{SYSLOGFACILITY} )?%{SYSLOGHOST:logsource}+(?: %{SYSLOGPROG}:|)`,
