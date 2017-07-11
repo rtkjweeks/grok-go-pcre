@@ -1,5 +1,10 @@
 # Grok
 
+[![GoDoc](https://godoc.org/github.com/trivago/grok?status.svg)](https://godoc.org/github.com/trivago/grok)
+[![Build Status](https://travis-ci.org/trivago/grok.svg)](https://travis-ci.org/trivago/grok)
+[![Coverage Status](https://coveralls.io/repos/trivago/grok/badge.png?branch=master)](https://coveralls.io/r/trivago/grok?branch=master)
+[![Go Report Card](http://goreportcard.com/badge/trivago/grok)](http:/goreportcard.com/report/trivago/grok)
+
 This is a fork of [github.com/vjeantet/grok](https://github.com/vjeantet/grok) with improved concurrency.
 This fork is not 100% API compatible but the underlying implementation is (mostly) the same.
 
