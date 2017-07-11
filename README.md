@@ -43,6 +43,5 @@ Improvements
 
 ```text
 BenchmarkNew-8                     +150%
-BenchmarkCapturesTypedReal-8         +5%
 BenchmarkParallelCaptures-8        +274%
 ```

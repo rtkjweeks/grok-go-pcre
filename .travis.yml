@@ -1,5 +1,4 @@
 language: go
-language: go
 install:
     - go get -v golang.org/x/tools/cmd/cover
 script:
