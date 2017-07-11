@@ -9,39 +9,39 @@ import (
 func TestNew(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 	expect.Greater(len(g.patterns), 0)
 
-	g, err = NewGrok(Config{SkipDefaultPatterns: true})
+	g, err = New(Config{SkipDefaultPatterns: true})
 	expect.NoError(err)
 	expect.Equal(0, len(g.patterns))
 
-	g, err = NewGrok(Config{Patterns: patterns.AWS})
+	g, err = New(Config{Patterns: patterns.AWS})
 	expect.NoError(err)
 
-	g, err = NewGrok(Config{Patterns: patterns.Grok})
+	g, err = New(Config{Patterns: patterns.Grok})
 	expect.NoError(err)
 
-	g, err = NewGrok(Config{Patterns: patterns.Firewalls})
+	g, err = New(Config{Patterns: patterns.Firewalls})
 	expect.NoError(err)
 }
 
 func TestParseWithDefaultCaptureMode(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapNotSet(captures, "TIME")
 
-	g, err = NewGrok(Config{})
+	g, err = New(Config{})
 	expect.NoError(err)
 
-	captures, err = g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err = g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapEqual(captures, "TIME", "22:58:32")
@@ -50,18 +50,18 @@ func TestParseWithDefaultCaptureMode(t *testing.T) {
 func TestMultiParseWithDefaultCaptureMode(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseStringToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapNotSet(captures, "TIME")
 	expect.Equal(2, len(captures["timestamp"]))
 
-	g, err = NewGrok(Config{})
+	g, err = New(Config{})
 	expect.NoError(err)
 
-	captures, err = g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err = g.ParseStringToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 
 	expect.MapSet(captures, "TIME")
@@ -72,50 +72,50 @@ func TestMultiParseWithDefaultCaptureMode(t *testing.T) {
 func TestMatch(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	result, err := g.Match("%{MONTH}", "June")
+	result, err := g.MatchString("%{MONTH}", "June")
 	expect.NoError(err)
 	expect.True(result)
 
 	comp, err := g.Compile("%{MONTH}")
 	expect.NoError(err)
-	expect.True(comp.Match("June"))
+	expect.True(comp.MatchString("June"))
 }
 
 func TestDoesNotMatch(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	result, err := g.Match("%{MONTH}", "13")
+	result, err := g.MatchString("%{MONTH}", "13")
 	expect.NoError(err)
 	expect.False(result)
 
 	comp, err := g.Compile("%{MONTH}")
 	expect.NoError(err)
-	expect.False(comp.Match("13"))
+	expect.False(comp.MatchString("13"))
 }
 
 func TestErrorMatch(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	_, err = g.Match("(", "13")
+	_, err = g.MatchString("(", "13")
 	expect.NotNil(err)
 }
 
 func TestShortName(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{Patterns: map[string]string{"A": "a"}})
+	g, err := New(Config{Patterns: map[string]string{"A": "a"}})
 	expect.NoError(err)
 
-	result, err := g.Match("%{A}", "a")
+	result, err := g.MatchString("%{A}", "a")
 	expect.NoError(err)
 	expect.True(result)
 }
@@ -123,7 +123,7 @@ func TestShortName(t *testing.T) {
 func TestDayCompile(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{Patterns: map[string]string{
+	g, err := New(Config{Patterns: map[string]string{
 		"DAY": "(?:Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)",
 	}})
 	expect.NoError(err)
@@ -135,7 +135,7 @@ func TestDayCompile(t *testing.T) {
 func TestErrorCompile(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
 	_, err = g.Compile("(")
@@ -145,10 +145,10 @@ func TestErrorCompile(t *testing.T) {
 func TestNamedCaptures(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	captured, err := g.Parse("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	captured, err := g.ParseString("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
 	expect.NoError(err)
 	expect.MapEqual(captured, "jour", "Tue")
 }
@@ -156,20 +156,20 @@ func TestNamedCaptures(t *testing.T) {
 func TestErrorCaptureUnknowPattern(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	_, err = g.Parse("%{UNKNOWPATTERN}", "")
+	_, err = g.ParseString("%{UNKNOWPATTERN}", "")
 	expect.NotNil(err)
 }
 
 func TestParse(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	res, err := g.Parse("%{DAY}", "Tue qds")
+	res, err := g.ParseString("%{DAY}", "Tue qds")
 	expect.NoError(err)
 	expect.MapEqual(res, "DAY", "Tue")
 }
@@ -177,20 +177,20 @@ func TestParse(t *testing.T) {
 func TestErrorParseToMultiMap(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	_, err = g.ParseToMultiMap("%{UNKNOWPATTERN}", "")
+	_, err = g.ParseStringToMultiMap("%{UNKNOWPATTERN}", "")
 	expect.NotNil(err)
 }
 
 func TestParseToMultiMap(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	res, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	res, err := g.ParseStringToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:23:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapSet(res, "TIME")
 	expect.Equal(2, len(res["TIME"]))
@@ -201,10 +201,10 @@ func TestParseToMultiMap(t *testing.T) {
 func TestParseToMultiMapOnlyNamedCaptures(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	res, err := g.ParseToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	res, err := g.ParseStringToMultiMap("%{COMMONAPACHELOG} %{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207 127.0.0.1 - - [24/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 
 	expect.MapSet(res, "timestamp")
@@ -216,19 +216,19 @@ func TestParseToMultiMapOnlyNamedCaptures(t *testing.T) {
 func TestCaptureAll(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapEqual(captures, "TIME", "22:58:32")
 
-	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	captures, err = g.ParseString("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "SECOND", "17,1599")
 
-	captures, err = g.Parse("%{HOSTPORT}", `google.com:8080`)
+	captures, err = g.ParseString("%{HOSTPORT}", `google.com:8080`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "HOSTNAME", "google.com")
 	expect.MapEqual(captures, "POSINT", "8080")
@@ -237,19 +237,19 @@ func TestCaptureAll(t *testing.T) {
 func TestNamedCapture(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapNotSet(captures, "TIME")
 
-	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	captures, err = g.ParseString("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
 	expect.NoError(err)
 	expect.MapNotSet(captures, "SECOND")
 
-	captures, err = g.Parse("%{HOSTPORT}", `google.com:8080`)
+	captures, err = g.ParseString("%{HOSTPORT}", `google.com:8080`)
 	expect.NoError(err)
 	expect.MapNotSet(captures, "HOSTNAME")
 	expect.MapNotSet(captures, "POSINT")
@@ -258,31 +258,31 @@ func TestNamedCapture(t *testing.T) {
 func TestRemoveEmptyValues(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true, RemoveEmptyValues: true})
+	g, err := New(Config{NamedCapturesOnly: true, RemoveEmptyValues: true})
 	expect.NoError(err)
 
-	captures, err := g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.MapNotSet(captures, "rawrequest")
 }
 
 func TestCapturesAndNamedCapture(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.Parse("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	captures, err := g.ParseString("%{DAY:jour}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
 	expect.NoError(err)
 	expect.MapEqual(captures, "jour", "Tue")
 
-	g, err = NewGrok(Config{})
+	g, err = New(Config{})
 	expect.NoError(err)
 
-	captures, err = g.Parse("%{DAY}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
+	captures, err = g.ParseString("%{DAY}", "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: 7157")
 	expect.NoError(err)
 	expect.MapEqual(captures, "DAY", "Tue")
 
-	captures, err = g.Parse("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err = g.ParseString("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "clientip", "127.0.0.1")
 	expect.MapEqual(captures, "verb", "GET")
@@ -290,79 +290,79 @@ func TestCapturesAndNamedCapture(t *testing.T) {
 	expect.MapEqual(captures, "bytes", "207")
 
 	//PATH
-	captures, err = g.Parse("%{WINPATH}", `s dfqs c:\winfows\sdf.txt`)
+	captures, err = g.ParseString("%{WINPATH}", `s dfqs c:\winfows\sdf.txt`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "WINPATH", `c:\winfows\sdf.txt`)
 
-	captures, err = g.Parse("%{WINPATH}", `s dfqs \\sdf\winfows\sdf.txt`)
+	captures, err = g.ParseString("%{WINPATH}", `s dfqs \\sdf\winfows\sdf.txt`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "WINPATH", `\\sdf\winfows\sdf.txt`)
 
-	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/lib/ sqfd`)
+	captures, err = g.ParseString("%{UNIXPATH}", `s dfqs /usr/lib/ sqfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "UNIXPATH", `/usr/lib/`)
 
-	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/lib sqfd`)
+	captures, err = g.ParseString("%{UNIXPATH}", `s dfqs /usr/lib sqfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "UNIXPATH", `/usr/lib`)
 
-	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr/ sqfd`)
+	captures, err = g.ParseString("%{UNIXPATH}", `s dfqs /usr/ sqfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "UNIXPATH", `/usr/`)
 
-	captures, err = g.Parse("%{UNIXPATH}", `s dfqs /usr sqfd`)
+	captures, err = g.ParseString("%{UNIXPATH}", `s dfqs /usr sqfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "UNIXPATH", `/usr`)
 
-	captures, err = g.Parse("%{UNIXPATH}", `s dfqs / sqfd`)
+	captures, err = g.ParseString("%{UNIXPATH}", `s dfqs / sqfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "UNIXPATH", `/`)
 
 	//YEAR
-	captures, err = g.Parse("%{YEAR}", `s d9fq4999s ../ sdf`)
+	captures, err = g.ParseString("%{YEAR}", `s d9fq4999s ../ sdf`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "YEAR", `4999`)
 
-	captures, err = g.Parse("%{YEAR}", `s d79fq4999s ../ sdf`)
+	captures, err = g.ParseString("%{YEAR}", `s d79fq4999s ../ sdf`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "YEAR", `79`)
 
-	captures, err = g.Parse("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
+	captures, err = g.ParseString("%{TIMESTAMP_ISO8601}", `s d9fq4999s ../ sdf 2013-11-06 04:50:17,1599sd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "TIMESTAMP_ISO8601", `2013-11-06 04:50:17,1599`)
 
 	//MAC
-	captures, err = g.Parse("%{MAC}", `s d9fq4999s ../ sdf 2013- 01:02:03:04:ab:cf  11-06 04:50:17,1599sd`)
+	captures, err = g.ParseString("%{MAC}", `s d9fq4999s ../ sdf 2013- 01:02:03:04:ab:cf  11-06 04:50:17,1599sd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "MAC", `01:02:03:04:ab:cf`)
 
-	captures, err = g.Parse("%{MAC}", `s d9fq4999s ../ sdf 2013- 01-02-03-04-ab-cd  11-06 04:50:17,1599sd`)
+	captures, err = g.ParseString("%{MAC}", `s d9fq4999s ../ sdf 2013- 01-02-03-04-ab-cd  11-06 04:50:17,1599sd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "MAC", `01-02-03-04-ab-cd`)
 
 	//QUOTEDSTRING
-	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd fk"lkj"mkj`)
+	captures, err = g.ParseString("%{QUOTEDSTRING}", `qsdklfjqsd fk"lkj"mkj`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "QUOTEDSTRING", `"lkj"`)
 
-	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd fk'lkj'mkj`)
+	captures, err = g.ParseString("%{QUOTEDSTRING}", `qsdklfjqsd fk'lkj'mkj`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "QUOTEDSTRING", `'lkj'`)
 
-	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd "fk'lkj'm"kj`)
+	captures, err = g.ParseString("%{QUOTEDSTRING}", `qsdklfjqsd "fk'lkj'm"kj`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "QUOTEDSTRING", `"fk'lkj'm"`)
 
-	captures, err = g.Parse("%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
+	captures, err = g.ParseString("%{QUOTEDSTRING}", `qsdklfjqsd 'fk"lkj"m'kj`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "QUOTEDSTRING", `'fk"lkj"m'`)
 
 	//BASE10NUM
-	captures, err = g.Parse("%{BASE10NUM}", `1`) // this is a nice one
+	captures, err = g.ParseString("%{BASE10NUM}", `1`) // this is a nice one
 	expect.NoError(err)
 	expect.MapEqual(captures, "BASE10NUM", `1`)
 
-	captures, err = g.Parse("%{BASE10NUM}", `qsfd8080qsfd`)
+	captures, err = g.ParseString("%{BASE10NUM}", `qsfd8080qsfd`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "BASE10NUM", `8080`)
 }
@@ -371,12 +371,12 @@ func TestCapturesAndNamedCapture(t *testing.T) {
 func TestConcurentParse(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
 	check := func(key, value, pattern, text string) {
 
-		captures, err := g.Parse(pattern, text)
+		captures, err := g.ParseString(pattern, text)
 		expect.NoError(err)
 		expect.MapEqual(captures, key, value)
 	}
@@ -391,10 +391,10 @@ func TestConcurentParse(t *testing.T) {
 func TestParseTypedWithDefaultCaptureMode(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.ParseTyped("%{IPV4:ip:string} %{NUMBER:status:int} %{NUMBER:duration:float}", `127.0.0.1 200 0.8`)
+	captures, err := g.ParseStringTyped("%{IPV4:ip:string} %{NUMBER:status:int} %{NUMBER:duration:float}", `127.0.0.1 200 0.8`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "ip", "127.0.0.1")
 	expect.MapEqual(captures, "status", 200)
@@ -404,18 +404,18 @@ func TestParseTypedWithDefaultCaptureMode(t *testing.T) {
 func TestParseTypedWithNoTypeInfo(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseStringTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapNotSet(captures, "TIME")
 
-	g, err = NewGrok(Config{})
+	g, err = New(Config{})
 	expect.NoError(err)
 
-	captures, err = g.ParseTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err = g.ParseStringTyped("%{COMMONAPACHELOG}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "timestamp", "23/Apr/2014:22:58:32 +0200")
 	expect.MapEqual(captures, "TIME", "22:58:32")
@@ -424,10 +424,10 @@ func TestParseTypedWithNoTypeInfo(t *testing.T) {
 func TestParseTypedWithIntegerTypeCoercion(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	captures, err := g.ParseTyped("%{WORD:coerced:int}", `5.75`)
+	captures, err := g.ParseStringTyped("%{WORD:coerced:int}", `5.75`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "coerced", 5)
 }
@@ -435,34 +435,34 @@ func TestParseTypedWithIntegerTypeCoercion(t *testing.T) {
 func TestParseTypedWithUnknownType(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{NamedCapturesOnly: true})
+	g, err := New(Config{NamedCapturesOnly: true})
 	expect.NoError(err)
 
-	_, err = g.ParseTyped("%{WORD:word:unknown}", `hello`)
+	_, err = g.ParseStringTyped("%{WORD:word:unknown}", `hello`)
 	expect.NotNil(err)
 }
 
 func TestParseTypedErrorCaptureUnknowPattern(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{})
+	g, err := New(Config{})
 	expect.NoError(err)
 
-	_, err = g.ParseTyped("%{UNKNOWPATTERN}", "")
+	_, err = g.ParseStringTyped("%{UNKNOWPATTERN}", "")
 	expect.NotNil(err)
 }
 
 func TestParseTypedWithTypedParents(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{
+	g, err := New(Config{
 		NamedCapturesOnly: true,
 		Patterns: map[string]string{
 			"TESTCOMMON": `%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes:int}|-)`,
 		}})
 	expect.NoError(err)
 
-	captures, err := g.ParseTyped("%{TESTCOMMON}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+	captures, err := g.ParseStringTyped("%{TESTCOMMON}", `127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "bytes", 207)
 }
@@ -470,7 +470,7 @@ func TestParseTypedWithTypedParents(t *testing.T) {
 func TestParseTypedWithSemanticHomonyms(t *testing.T) {
 	expect := ttesting.NewExpect(t)
 
-	g, err := NewGrok(Config{
+	g, err := New(Config{
 		NamedCapturesOnly:   true,
 		SkipDefaultPatterns: true,
 		Patterns: map[string]string{
@@ -482,11 +482,11 @@ func TestParseTypedWithSemanticHomonyms(t *testing.T) {
 
 	expect.NoError(err)
 
-	captures, err := g.ParseTyped("%{MYNUM}", `207`)
+	captures, err := g.ParseStringTyped("%{MYNUM}", `207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "bytes", 207)
 
-	captures, err = g.ParseTyped("%{MYSTR}", `207`)
+	captures, err = g.ParseStringTyped("%{MYSTR}", `207`)
 	expect.NoError(err)
 	expect.MapEqual(captures, "bytes", "207")
 }
@@ -499,53 +499,53 @@ func BenchmarkNew(b *testing.B) {
 	var g *Grok
 	// run the check function b.N times
 	for n := 0; n < b.N; n++ {
-		g, _ = NewGrok(Config{NamedCapturesOnly: true})
+		g, _ = New(Config{NamedCapturesOnly: true})
 	}
 	resultNew = g
 }
 
 func BenchmarkCaptures(b *testing.B) {
-	g, _ := NewGrok(Config{NamedCapturesOnly: true})
+	g, _ := New(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
 	c, _ := g.Compile(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-)`)
 	for n := 0; n < b.N; n++ {
-		c.Parse(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+		c.ParseString(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	}
 }
 
 func BenchmarkParallelCaptures(b *testing.B) {
-	g, _ := NewGrok(Config{NamedCapturesOnly: true})
+	g, _ := New(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	c, _ := g.Compile(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-)`)
 	b.RunParallel(func(b *testing.PB) {
 		for b.Next() {
-			c.Parse(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+			c.ParseString(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 		}
 	})
 }
 
 func BenchmarkCapturesTypedFake(b *testing.B) {
-	g, _ := NewGrok(Config{NamedCapturesOnly: true})
+	g, _ := New(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
 	c, _ := g.Compile(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion})?|%{DATA:rawrequest})" %{NUMBER:response} (?:%{NUMBER:bytes}|-)`)
 	for n := 0; n < b.N; n++ {
-		c.Parse(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+		c.ParseString(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	}
 }
 
 func BenchmarkCapturesTypedReal(b *testing.B) {
-	g, _ := NewGrok(Config{NamedCapturesOnly: true})
+	g, _ := New(Config{NamedCapturesOnly: true})
 	b.ReportAllocs()
 	b.ResetTimer()
 	// run the check function b.N times
 	c, _ := g.Compile(`%{IPORHOST:clientip} %{USER:ident} %{USER:auth} \[%{HTTPDATE:timestamp}\] "(?:%{WORD:verb} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:int})?|%{DATA:rawrequest})" %{NUMBER:response:int} (?:%{NUMBER:bytes:int}|-)`)
 	for n := 0; n < b.N; n++ {
-		c.ParseTyped(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
+		c.ParseStringTyped(`127.0.0.1 - - [23/Apr/2014:22:58:32 +0200] "GET /index.php HTTP/1.1" 404 207`)
 	}
 }
