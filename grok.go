@@ -1,7 +1,8 @@
 package grok
 
 import (
-	"regexp"
+	"fmt"
+	"github.com/rtkjweeks/go-pcre"
 )
 
 // Config is used to pass a set of configuration values to the grok.New function.
@@ -39,6 +40,8 @@ func New(config Config) (*Grok, error) {
 		return nil, err
 	}
 
+	fmt.Println("Constructing grok")
+
 	return &Grok{
 		patterns:    patterns,
 		namedOnly:   config.NamedCapturesOnly,
@@ -54,15 +57,34 @@ func (grok Grok) Compile(pattern string) (*CompiledGrok, error) {
 		return nil, err
 	}
 
-	compiled, err := regexp.Compile(grokPattern.expression)
+	// JJW: TODO: No flags for now; do we need any?
+	compiled, err := pcre.Compile(grokPattern.expression, 0)
 	if err != nil {
 		return nil, err
 	}
 
+	numGroups := compiled.Groups()
+	groupIdToName := make([]string, numGroups+1)
+
+	// After compiling, we need to iterate all the capture groups, and
+	// map them back to names (After we perform a match, we iterate/lookup
+	// results by capture group ID, and then use this to map them back to names)
+	for k, v := range grokPattern.aliasMap {
+		groupId, err := compiled.GroupNameToIndex(k);
+		if err == nil {
+			fmt.Printf("  group %s (%s) -> %d\n", k, v, groupId)
+			groupIdToName[groupId] = v
+		} else {
+			fmt.Printf("  group %s (%s) not found!", k, v)
+		}
+	}
+
+
 	return &CompiledGrok{
-		regexp:      compiled,
-		typeHints:   grokPattern.typeHints,
-		removeEmpty: grok.removeEmpty,
+		regexp:        compiled,
+		typeHints:     grokPattern.typeHints,
+		removeEmpty:   grok.removeEmpty,
+		groupIdToName: groupIdToName,
 	}, nil
 }
 
@@ -88,85 +110,4 @@ func (grok Grok) MatchString(pattern, text string) (bool, error) {
 	}
 
 	return complied.MatchString(text), nil
-}
-
-// Parse processes the given data and returns a map containing the values of
-// all named fields as byte arrays. If a field is parsed more than once, the
-// last match is return.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) Parse(pattern string, data []byte) (map[string][]byte, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.Parse(data), nil
-}
-
-// ParseString processes the given text and returns a map containing the values of
-// all named fields as strings. If a field is parsed more than once, the
-// last match is return.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) ParseString(pattern, text string) (map[string]string, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.ParseString(text), nil
-}
-
-// ParseTyped processes the given data and returns a map containing the values
-// of all named fields converted to their corresponding types. If no typehint is
-// given, the value will be converted to string.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) ParseTyped(pattern string, data []byte) (map[string]interface{}, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.ParseTyped(data)
-}
-
-// ParseStringTyped processes the given data and returns a map containing the
-// values of all named fields converted to their corresponding types. If no
-// typehint is given, the value will be converted to string.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) ParseStringTyped(pattern, text string) (map[string]interface{}, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.ParseStringTyped(text)
-}
-
-// ParseToMultiMap acts like Parse but allows multiple matches per field.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) ParseToMultiMap(pattern string, data []byte) (map[string][][]byte, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.ParseToMultiMap(data), nil
-}
-
-// ParseStringToMultiMap acts like ParseString but allows multiple matches per
-// field.
-// The given pattern is compiled on every call to this function.
-// If you want to call this function more than once consider using Compile.
-func (grok Grok) ParseStringToMultiMap(pattern, text string) (map[string][]string, error) {
-	complied, err := grok.Compile(pattern)
-	if err != nil {
-		return nil, err
-	}
-
-	return complied.ParseStringToMultiMap(text), nil
 }
